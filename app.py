@@ -2,11 +2,10 @@ from flask import Flask
 
 from datetime import datetime
 from threading import Thread
-from threading import Lock
 
 import time
 
-WORKER_IDLE_SECONDS = 600
+WORKER_IDLE_SECONDS = 60
 
 def worker():
     i = 0
@@ -24,4 +23,4 @@ app = Flask(__name__)
 
 @app.route("/")
 def hello_world():
-    return "Hello, World!"
+    return "OK"
