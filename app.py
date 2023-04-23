@@ -16,7 +16,7 @@ def worker():
         now = datetime.now()
         state["worker"] = i
         state["latest"] = now
-        print(f"worker active [{i}] {now}")
+        print(f"Backend worker active [{i}] {now}")
         time.sleep(WORKER_IDLE_SECONDS)
 
 
