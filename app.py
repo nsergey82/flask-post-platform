@@ -28,4 +28,6 @@ app = Flask(__name__)
 
 @app.route("/")
 def hello_world():
-    return f"{datetime.now()}: Worker cycles: {state['worker']} latest: {state['latest']}"
+    msg = f"{datetime.now()}: Worker cycles: {state['worker']} latest: {state['latest']}"
+    print(msg)
+    return msg
