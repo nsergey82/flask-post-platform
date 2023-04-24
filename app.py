@@ -20,8 +20,7 @@ def worker():
         time.sleep(WORKER_IDLE_SECONDS)
 
 
-w = Thread(target=worker)
-w.start()
+w = None
 
 app = Flask(__name__)
 
@@ -31,6 +30,12 @@ def health():
 
 @app.route("/")
 def hello_world():
+    global w
+    if w is None:
+        w = Thread(target=worker)
+        w.start()
+
     msg = f"{datetime.now()}: Worker cycles: {state['worker']} latest: {state['latest']} worker alive: {w.is_alive()}"
     print(msg)
     return msg
+
