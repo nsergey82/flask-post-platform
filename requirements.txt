@@ -1,3 +1,5 @@
 Flask
 Gunicorn
-
+jwcrypto
+requests
+oic
