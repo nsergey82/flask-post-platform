@@ -20,14 +20,17 @@ def worker():
         time.sleep(WORKER_IDLE_SECONDS)
 
 
-w = Thread(target=worker, daemon=True)
+w = Thread(target=worker)
 w.start()
 
 app = Flask(__name__)
 
+@app.route("/health")
+def health():
+    return "OK"
 
 @app.route("/")
 def hello_world():
-    msg = f"{datetime.now()}: Worker cycles: {state['worker']} latest: {state['latest']}"
+    msg = f"{datetime.now()}: Worker cycles: {state['worker']} latest: {state['latest']} worker alive: {w.is_alive()}"
     print(msg)
     return msg
