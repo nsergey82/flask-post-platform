@@ -23,7 +23,7 @@ _CALLBACK_URL = f"{_THIS}{_OID_CALLBACK_PATH}"
 _TEST_URL = "https://sergeynepomnyachiy.solidcommunity.net/private/test2.md"
 _RSS = "https://devblogs.microsoft.com/oldnewthing/feed"
 
-WORKER_IDLE_SECONDS = 30
+WORKER_IDLE_SECONDS = 600
 worker_state = {"users": {}}
 provider_info, client_id = init_oidc(_ISSUER, _CALLBACK_URL)
 
@@ -71,7 +71,9 @@ def operate_users(users):
                 if len(newdata) != sz:
                     print("After:", len(newdata))
                     resp = requests.put(
-                        url=_TEST_URL, data=json.dumps(newdata), headers=headers[1]
+                        url=_TEST_URL,
+                        data=json.dumps(newdata),
+                        headers=headers[1],
                     )
                     print(resp.status_code)
             else:
