@@ -3,3 +3,4 @@ Gunicorn
 jwcrypto
 requests
 oic
+rss-parser

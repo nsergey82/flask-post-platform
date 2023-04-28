@@ -1,8 +1,8 @@
-from flask import Flask, request, session, redirect
-import requests
+from flask import Flask, request, session, redirect, Response, render_template_string
 from datetime import datetime
-from threading import Thread, get_ident
-import time
+from threading import Thread
+from socket import gethostname
+from worker import worker, get_worker_state, add_user, get_user_data
 import json
 
 from oidcutils import (
@@ -11,90 +11,26 @@ from oidcutils import (
     dpop_from_atoken_for_url,
     prepare_auth_data,
     webid_from_access_token,
+    webid_to_resource,
+    set_session_storage,
+    get_from_session_storage,
+    OID_CALLBACK_PATH,
 )
 
+_IS_TEST = gethostname() == "DESKTOP-9PMKQUR"
+_WORKER_IDLE_SECONDS = 10 if _IS_TEST else 600
+
 # URL when deployed to render, change to server
-_THIS = "https://rss-post-platform.onrender.com"
+_THIS = (
+    "http://127.0.0.1:5000" if _IS_TEST else "https://rss-post-platform.onrender.com"
+)
 # ID provider. Can support many
 _ISSUER = "https://solidcommunity.net/"
+
 # the route in this app used for handling idp redirects back
-_OID_CALLBACK_PATH = "/oauth/callback"
-_CALLBACK_URL = f"{_THIS}{_OID_CALLBACK_PATH}"
-_TEST_URL = "https://sergeynepomnyachiy.solidcommunity.net/private/test2.md"
-_RSS = "https://devblogs.microsoft.com/oldnewthing/feed"
+_CALLBACK_URL = f"{_THIS}{OID_CALLBACK_PATH}"
 
-WORKER_IDLE_SECONDS = 600
-worker_state = {"users": {}}
 provider_info, client_id = init_oidc(_ISSUER, _CALLBACK_URL)
-
-# keyed by state, contains {'key': {...}, 'code_verifier': ...}
-# will hold sessions partially established
-# (e.g., one way sent, redirect didn't return)
-state_storage = {}
-
-
-def get_from_session_storage(key):
-    global state_storage
-    assert key in state_storage, f"key '{key}' not in STATE_STORAGE?"
-    return state_storage[key]
-
-
-def set_session_storage(key, value):
-    global state_storage
-    state_storage[key] = value
-
-
-def update_pod_with_rss(podjsn, rss):
-    lines = rss.split("\n")
-    now = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-    for line in lines:
-        if "<title>" in line:
-            if line not in podjsn:
-                podjsn[line] = now
-    return podjsn
-
-
-def operate_users(users):
-    print(f"Backend worker active [{get_ident()}] {datetime.now()}")
-    for user, headers in users.items():
-        print("User", user)
-        resp = requests.get(url=_TEST_URL, headers=headers[0])
-        if resp.status_code == 200:
-            # read json from POD
-            podjsn = resp.json()
-            sz = len(podjsn)
-            print("Before:", sz)
-            # fetch RSS content
-            resp = requests.get(url=_RSS)
-            if resp.status_code == 200:
-                newdata = update_pod_with_rss(podjsn, resp.text)
-                if len(newdata) != sz:
-                    print("After:", len(newdata))
-                    resp = requests.put(
-                        url=_TEST_URL,
-                        data=json.dumps(newdata),
-                        headers=headers[1],
-                    )
-                    print(resp.status_code)
-            else:
-                print("Could not read RSS")
-        else:
-            print("failed read:", resp.status_code)
-
-
-def worker():
-    global worker_state
-    i = 0
-    while True:
-        i += 1
-
-        worker_state["worker"] = i
-        worker_state["latest"] = datetime.now()
-
-        operate_users(worker_state["users"])
-        time.sleep(WORKER_IDLE_SECONDS)
-
-
 worker_thread = None
 
 app = Flask(__name__)
@@ -113,7 +49,7 @@ def login():
         msg = f"Logged in successfully as {webid_from_access_token(session['access_token'])}"
         print(msg)
         get_cookies_to_worker(session["key"], session["access_token"])
-        return msg
+        return redirect("/")
 
     global client_id
     key, value, query = prepare_auth_data(request.url, client_id, _CALLBACK_URL)
@@ -128,14 +64,15 @@ def login():
 
 
 def get_cookies_to_worker(key, atoken):
-    global worker_state
-    hget, web_id = dpop_from_atoken_for_url(key, atoken, _TEST_URL, method="GET")
-    hpost, _ = dpop_from_atoken_for_url(key, atoken, _TEST_URL, method="PUT")
+    web_id = webid_from_access_token(atoken)
+    url = webid_to_resource(web_id)
+    hget = dpop_from_atoken_for_url(key, atoken, url, method="GET")
+    hpost = dpop_from_atoken_for_url(key, atoken, url, method="PUT")
     hpost["Content-Type"] = "application/json; charset=utf-8"
-    worker_state["users"][web_id] = (hget, hpost)
+    add_user(web_id, (hget, hpost))
 
 
-@app.route(_OID_CALLBACK_PATH)
+@app.route(OID_CALLBACK_PATH)
 def oid_callback():
     global provider_info
     global client_id
@@ -158,15 +95,37 @@ def oid_callback():
     return redirect(value.pop("redirect_url"))
 
 
-@app.route("/")
-def index():
+@app.route("/admin/start")
+def start():
     global worker_thread
     if worker_thread is None:
-        worker_thread = Thread(target=worker)
+        worker_thread = Thread(target=worker, args=(_WORKER_IDLE_SECONDS,))
         worker_thread.start()
 
-    msg = ""
+    msg = "starting..."
+    worker_state = get_worker_state()
     if "worker" in worker_state:
         msg = f"{datetime.now()}: Worker cycles: {worker_state['worker']} latest: {worker_state['latest']} worker alive: {worker_thread.is_alive()}"
     print(msg)
     return msg
+
+
+_TEMPLATE = """
+<h2>RSS feeds for {{ web_id }}</h2>
+{%for title in data%}
+    <li>{{ data[title][1] }} &nbsp; <a href="{{ data[title][0] }}">{{ title }}</a></li>
+{%endfor%}
+"""
+
+
+@app.route("/")
+def index():
+    web_id = webid_from_access_token(session["access_token"])
+    if web_id is not None:
+        data = get_user_data(web_id)
+        if data is not None:
+            return Response(
+                render_template_string(_TEMPLATE, web_id=web_id, data=data),
+                mimetype="text/html",
+            )
+    return redirect("login")

@@ -15,9 +15,29 @@ import hashlib
 import uuid
 from urllib.parse import urlencode
 
+OID_CALLBACK_PATH = "/oauth/callback"
+
+# keyed by state, contains {'key': {...}, 'code_verifier': ...}
+# will hold sessions partially established
+# (e.g., one way sent, redirect didn't return)
+state_storage = {}
+
+
+def get_from_session_storage(key):
+    assert key in state_storage, f"key '{key}' not in STATE_STORAGE?"
+    return state_storage[key]
+
+
+def set_session_storage(key, value):
+    state_storage[key] = value
+
+
 def webid_from_access_token(access_token):
+    if access_token is None:
+        return None
     decoded_access_token = jwcrypto.jwt.JWT(jwt=access_token)
     return json.loads(decoded_access_token.token.objects["payload"])["sub"]
+
 
 def dpop_from_atoken_for_url(key, access_token, url, method="GET"):
     keypair = jwcrypto.jwk.JWK.from_json(key)
@@ -28,7 +48,7 @@ def dpop_from_atoken_for_url(key, access_token, url, method="GET"):
         "Authorization": ("DPoP " + access_token),
         "DPoP": _make_token_for(keypair, url, method),
     }
-    return headers, webid_from_access_token(access_token)
+    return headers
 
 
 def prepare_auth_data(redirect_url, client_id, callback_url):
@@ -88,6 +108,7 @@ def init_oidc(issuer, callback_url):
 def _make_random_string():
     return str(uuid.uuid4())
 
+
 def _make_verifier_challenge():
     code_verifier = _make_random_string()
     code_challenge = hashlib.sha256(code_verifier.encode("utf-8")).digest()
@@ -120,3 +141,7 @@ def _make_token_for(keypair, uri, method):
     )
     jwt.make_signed_token(keypair)
     return jwt.serialize()
+
+
+def webid_to_resource(webid: str) -> str:
+    return webid.replace("profile/card#me", "private/test2.md")
