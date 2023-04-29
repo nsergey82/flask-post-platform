@@ -3,7 +3,6 @@ from datetime import datetime
 from threading import Thread
 from socket import gethostname
 from worker import worker, get_worker_state, add_user, get_user_data
-import json
 
 from oidcutils import (
     handle_callback,
@@ -124,6 +123,7 @@ def index():
     if web_id is not None:
         data = get_user_data(web_id)
         if data is not None:
+            data.pop("RSS_FEEDS_SUBSCRIBED_TO")
             return Response(
                 render_template_string(_TEMPLATE, web_id=web_id, data=data),
                 mimetype="text/html",

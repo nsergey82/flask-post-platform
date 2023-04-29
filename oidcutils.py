@@ -144,4 +144,4 @@ def _make_token_for(keypair, uri, method):
 
 
 def webid_to_resource(webid: str) -> str:
-    return webid.replace("profile/card#me", "private/test2.md")
+    return webid.replace("profile/card#me", "private/rssdata.json")

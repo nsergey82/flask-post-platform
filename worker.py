@@ -11,12 +11,10 @@ import requests
 
 worker_state = {"users": {}}
 
-_RSS = "https://devblogs.microsoft.com/oldnewthing/feed"
-
-User = namedtuple("User", ["web_id", "headers", "rss_list", "fetcher", "putter"])
+User = namedtuple("User", ["web_id", "headers", "fetcher", "putter"])
 
 
-def add_user(web_id, headers, rss_list=[_RSS]):
+def add_user(web_id, headers):
     if web_id in worker_state["users"]:
         print(web_id, "already in users. Ignoring")
         return
@@ -27,7 +25,7 @@ def add_user(web_id, headers, rss_list=[_RSS]):
         if resp.status_code == requests.codes.ok:
             return resp.json()
         print(f"{resp.status_code} while fetching {url}")
-        return []
+        return {}
 
     def putter(newdata):
         url = webid_to_resource(web_id)
@@ -39,7 +37,7 @@ def add_user(web_id, headers, rss_list=[_RSS]):
         if resp.status_code != requests.codes.created:
             print(f"{resp.status_code} while putting {url}")
 
-    worker_state["users"][web_id] = User(web_id, headers, rss_list, fetcher, putter)
+    worker_state["users"][web_id] = User(web_id, headers, fetcher, putter)
 
 
 def _operate_users(users):
@@ -47,7 +45,7 @@ def _operate_users(users):
     print(len(users), "user tokens present")
     for user in users.values():
         print("Updating for User", user.web_id)
-        rss_iteration(user.rss_list, user.fetcher, user.putter)
+        rss_iteration(user.fetcher, user.putter)
 
 
 def get_user_data(web_id):

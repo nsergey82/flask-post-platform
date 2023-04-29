@@ -3,6 +3,8 @@ from typing import List, Dict, Callable
 import requests
 from rss_parser import Parser
 
+# rss example "https://devblogs.microsoft.com/oldnewthing/feed"
+
 
 def _parse_rss_xml(text: str) -> List[str]:
     parser = Parser(xml=text)
@@ -26,12 +28,18 @@ def fetch_rss(urls: List[str]):
             yield resp.text
 
 
-def rss_iteration(urls: List[str], fetcher: Callable, putter: Callable) -> None:
+def rss_iteration(fetcher: Callable, putter: Callable) -> None:
     poddata = fetcher()
     before = len(poddata)
     print("Before:", before)
+
+    urls = poddata.get("RSS_FEEDS_SUBSCRIBED_TO", [])
+    if 0 == len(urls):
+        poddata["RSS_FEEDS_SUBSCRIBED_TO"] = []
+
     for data in fetch_rss(urls):
         update_json_with_rss(poddata, data)
+
     after = len(poddata)
     if after != before:
         print("After:", after)
