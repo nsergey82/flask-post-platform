@@ -3,6 +3,8 @@ from datetime import datetime
 from threading import Thread
 from socket import gethostname
 from worker import worker, get_worker_state, add_user, get_user_data
+import time
+import requests
 
 from oidcutils import (
     handle_callback,
@@ -68,7 +70,6 @@ def create_app():
     app.cache = {}
     app.cache["oidc"] = init_oidc(_ISSUER, _CALLBACK_URL)
     app.cache["worker"] = None
-    start_worker_thread(app.cache)
 
     @app.route("/health")
     def health():
@@ -133,5 +134,11 @@ def create_app():
                     mimetype="text/html",
                 )
         return redirect("login")
+
+    def starter():
+        time.sleep(10)
+        requests.get(_THIS + "/admin/start")
+
+    Thread(target=starter).start()
 
     return app
