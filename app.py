@@ -20,6 +20,7 @@ from oidcutils import (
 
 _IS_TEST = gethostname() == "DESKTOP-9PMKQUR"
 _WORKER_IDLE_SECONDS = 10 if _IS_TEST else 600
+_STARTER_SECONDS = 1 if _IS_TEST else 10
 
 # URL when deployed to render, change to server
 _THIS = (
@@ -136,8 +137,10 @@ def create_app():
         return redirect("login")
 
     def starter():
-        time.sleep(10)
-        requests.get(_THIS + "/admin/start")
+        time.sleep(_STARTER_SECONDS)
+        url = _THIS + "/admin/start"
+        print("Calling", url)
+        requests.get(url)
 
     Thread(target=starter).start()
 
