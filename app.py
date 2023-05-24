@@ -19,7 +19,7 @@ from oidcutils import (
 )
 
 _IS_TEST = gethostname() == "DESKTOP-9PMKQUR"
-_WORKER_IDLE_SECONDS = 10 if _IS_TEST else 600
+_WORKER_IDLE_SECONDS = 10 if _IS_TEST else 60 * 20
 _STARTER_SECONDS = 1 if _IS_TEST else 10
 
 # URL when deployed to render, change to server
