@@ -36,7 +36,22 @@ def webid_from_access_token(access_token):
     if access_token is None:
         return None
     decoded_access_token = jwcrypto.jwt.JWT(jwt=access_token)
-    return json.loads(decoded_access_token.token.objects["payload"])["sub"]
+    jwt_json = json.loads(decoded_access_token.token.objects["payload"])
+    return jwt_json["sub"]
+
+
+def exp_from_access_token(access_token):
+    if access_token is None:
+        return None
+    decoded_access_token = jwcrypto.jwt.JWT(jwt=access_token)
+    jwt_json = json.loads(decoded_access_token.token.objects["payload"])
+    return jwt_json["exp"]
+
+
+def is_token_expired(access_token):
+    expires = exp_from_access_token(access_token)
+    when = datetime.datetime.fromtimestamp(expires)
+    return datetime.datetime.now() >= when
 
 
 def dpop_from_atoken_for_url(key, access_token, url, method="GET"):

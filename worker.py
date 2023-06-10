@@ -4,7 +4,7 @@ import time
 import json
 from collections import namedtuple
 
-from oidcutils import webid_to_resource
+from oidcutils import webid_to_resource, is_token_expired
 from rsslogic import rss_iteration
 
 import requests
@@ -27,10 +27,13 @@ def update_db(webid: str, headers: str):
     print("db updated")
 
 
-def add_user(web_id, headers, shall_update_db=True):
-    if web_id in worker_state["users"]:
-        print(web_id, "already in users. Ignoring")
+def add_user(web_id: str, headers, shall_update_db=True):
+    if is_token_expired(headers[0]["Authorization"].split(" ")[1]):
+        print("token expired, not adding ", web_id)
         return
+
+    if web_id in worker_state["users"]:
+        print(f"{web_id} already in users. Overwriting")
 
     def fetcher():
         url = webid_to_resource(web_id)

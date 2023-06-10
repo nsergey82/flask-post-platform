@@ -64,6 +64,7 @@ def get_cookies_to_worker(key, atoken):
     add_user(web_id, (hget, hpost))
 
 
+# python3 -m flask --app 'app:create_app()' run -p 8000
 def create_app():
     app = Flask(__name__)
     app.secret_key = "2612ea_678df63cda52e_fdff4e424e45_3"
@@ -128,7 +129,7 @@ def create_app():
         web_id = webid_from_access_token(session.get("access_token", None))
         if web_id is not None:
             data = get_user_data(web_id)
-            if data is not None:
+            if data is not None and "RSS_FEEDS_SUBSCRIBED_TO" in data:
                 data.pop("RSS_FEEDS_SUBSCRIBED_TO")
                 return Response(
                     render_template_string(_TEMPLATE, web_id=web_id, data=data),
